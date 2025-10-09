@@ -18,7 +18,7 @@ def main():
     
     conn.sendall(response)
     
-    conn.close()
+    
 
 
 if __name__ == "__main__":
