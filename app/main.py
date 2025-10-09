@@ -10,6 +10,15 @@ def main():
     #
     server = socket.create_server(("localhost", 9092), reuse_port=True)
     server.accept() # wait for client
+    conn, addr = server.accept()
+    
+    data = conn.recv(1024)  
+    
+    response = b'\x00\x00\x00\x00' + b'\x00\x00\x00\x07'
+    
+    conn.sendall(response)
+    
+    conn.close()
 
 
 if __name__ == "__main__":
