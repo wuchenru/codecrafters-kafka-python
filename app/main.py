@@ -13,8 +13,15 @@ def main():
     conn, addr = server.accept()
     
     data = conn.recv(1024)  
+    print(f"Received data: {data}")
+
+    # based on the protocal of request messsage
+    if len(data) >= 12:
+        correlation_id_bytes = data[8:12]
+    else:
+        correlation_id_bytes = b'\x00\x00\x00\x00'
     
-    response = b'\x00\x00\x00\x00' + b'\x00\x00\x00\x07'
+    response = b'\x00\x00\x00\x00' + correlation_id_bytes
     
     conn.sendall(response)
     
