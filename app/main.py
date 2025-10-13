@@ -1,5 +1,5 @@
 import socket  # noqa: F401
-
+import struct
 
 def main():
     # You can use print statements as follows for debugging,
@@ -18,11 +18,23 @@ def main():
     # based on the protocal of request messsage
     if len(data) >= 12:
         correlation_id_bytes = data[8:12]
+
+        request_api_version_bytes = data[6:8]
+        (request_api_version, ) = struct.unpack('>h', request_api_version_bytes)
+        print(f"request_api_version = {request_api_version}")
     else:
         correlation_id_bytes = b'\x00\x00\x00\x00'
+        request_api_version = -1
     
-    response = b'\x00\x00\x00\x00' + correlation_id_bytes
+
+    if 0 <= request_api_version <= 4:
+        error_code = 0
+    else:
+        error_code = 35
     
+    message_size = b'\x00\x00\x00\x00'
+    error_code_bytes = struct.pack(">h", error_code)  # short = 2 bytes, big-endian
+    response = message_size + correlation_id_bytes + error_code_bytes
     conn.sendall(response)
     
     conn.close()
