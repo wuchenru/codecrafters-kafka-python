@@ -50,8 +50,11 @@ def main():
     api_key = 18
     min_version = 0
     max_version = 4
-    api_key_entry = struct.pack(">hhh", api_key, min_version, max_version)
+    api_key_entry = struct.pack(">hhh", api_key, min_version, max_version) + b'\x00'
     api_keys_array = encode_unsigned_varint(1) + api_key_entry
+
+    print("api_keys_array hex:", api_keys_array.hex())
+
 
     throttle_time_ms = struct.pack(">i", 0)
 
