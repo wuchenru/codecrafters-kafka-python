@@ -43,7 +43,7 @@ def main():
 
     throttle_time_ms = struct.pack(">i", 0)
 
-    response_body = error_code_bytes + api_keys_array + throttle_time_ms
+    response_body = error_code_bytes + api_keys_array + throttle_time_ms + b'\x00'  # tag buffer as required by v4
 
     # header + body
     header_and_body = correlation_id_bytes + response_body
