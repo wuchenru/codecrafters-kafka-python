@@ -2,7 +2,6 @@ import socket  # noqa: F401
 import struct
 
 def encode_unsigned_varint(n):
-    """Kafka unsigned varint"""
     out = bytearray()
     while True:
         b = n & 0x7F
@@ -52,7 +51,7 @@ def main():
     min_version = 0
     max_version = 4
     api_key_entry = struct.pack(">hhh", api_key, min_version, max_version)
-    api_keys_array = encode_unsigned_varint(1) + struct.pack(">hhh", 18, 0, 4)
+    api_keys_array = encode_unsigned_varint(1) + api_key_entry
 
     throttle_time_ms = struct.pack(">i", 0)
 
