@@ -1,6 +1,19 @@
 import socket  # noqa: F401
 import struct
 
+def encode_unsigned_varint(n):
+    """Kafka unsigned varint"""
+    out = bytearray()
+    while True:
+        b = n & 0x7F
+        n >>= 7
+        if n == 0:
+            out.append(b)
+            break
+        else:
+            out.append(b | 0x80)
+    return bytes(out)
+
 def main():
     # You can use print statements as follows for debugging,
     # they'll be visible when running tests.
@@ -39,7 +52,7 @@ def main():
     min_version = 0
     max_version = 4
     api_key_entry = struct.pack(">hhh", api_key, min_version, max_version)
-    api_keys_array = struct.pack(">i", 1) + api_key_entry  # array长度 = 1
+    api_keys_array = encode_unsigned_varint(1) + struct.pack(">hhh", 18, 0, 4)
 
     throttle_time_ms = struct.pack(">i", 0)
 
