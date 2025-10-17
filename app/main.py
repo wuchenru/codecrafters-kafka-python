@@ -88,7 +88,7 @@ def main():
         api_key_entry = struct.pack(">hhh", api_key, min_version, max_version) + b'\x00'
         print_bytes_info("Single ApiKey entry", api_key_entry)
 
-        api_keys_array = encode_unsigned_varint(1) + api_key_entry
+        api_keys_array = encode_unsigned_varint(2) + api_key_entry
         print_bytes_info("ApiKeys array", api_keys_array)
 
         throttle_time_ms = struct.pack(">i", 0)
