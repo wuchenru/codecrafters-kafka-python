@@ -20,105 +20,107 @@ def print_bytes_info(label, b):
     print()
 
 def main():
-    # You can use print statements as follows for debugging,
-    # they'll be visible when running tests.
     print("Logs from your program will appear here!")
 
-    # Uncomment this to pass the first stage
-    #
     server = socket.create_server(("localhost", 9092), reuse_port=True)
-    # server.accept() # wait for client
     conn, addr = server.accept()
-    
-    data = conn.recv(1024)  
-    print_bytes_info("Received request", data)
+    print(f"Client connected: {addr}\n")
 
-    if len(data) < 14:
-        print("Invalid or too short Kafka request")
-        return
+    while True:
+        data = conn.recv(1024)
+        if not data:
+            print("Client disconnected.")
+            break
 
-    # parse Kafka request (based on protocol)
-    message_size = struct.unpack(">i", data[0:4])[0]
-    api_key = struct.unpack(">h", data[4:6])[0]
-    api_version = struct.unpack(">h", data[6:8])[0]
-    correlation_id = struct.unpack(">i", data[8:12])[0]
+        print_bytes_info("Received request", data)
 
-    print(f"[Request Info]")
-    print(f"  message_size = {message_size} bytes (rest of message)")
-    print(f"  api_key = {api_key} (should be 18 for ApiVersions)")
-    print(f"  api_version = {api_version}")
-    print(f"  correlation_id = {correlation_id}")
+        if len(data) < 14:
+            print("Invalid or too short Kafka request")
+            continue
 
-    # try to extract client_id (string length + bytes)
-    try:
-        client_id_len = struct.unpack(">h", data[12:14])[0]
-        client_id = data[14:14 + client_id_len].decode("utf-8", errors="ignore")
-        print(f"  client_id_len = {client_id_len}")
-        print(f"  client_id = {client_id}")
-    except Exception as e:
-        print(f"  (client_id decode failed: {e})")
-    print()
+        # parse Kafka request (based on protocol)
+        message_size = struct.unpack(">i", data[0:4])[0]
+        api_key = struct.unpack(">h", data[4:6])[0]
+        api_version = struct.unpack(">h", data[6:8])[0]
+        correlation_id = struct.unpack(">i", data[8:12])[0]
 
-    # based on the protocal of request messsage
-    if len(data) >= 12:
-        correlation_id_bytes = data[8:12]
-        request_api_version_bytes = data[6:8]
-        (request_api_version,) = struct.unpack('>h', request_api_version_bytes)
-        print(f"request_api_version = {request_api_version}")
-        print_bytes_info("CorrelationID bytes", correlation_id_bytes)
-        print_bytes_info("Request API version bytes", request_api_version_bytes)
-    else:
-        correlation_id_bytes = b'\x00\x00\x00\x00'
-        request_api_version = -1
+        print(f"[Request Info]")
+        print(f"  message_size = {message_size} bytes (rest of message)")
+        print(f"  api_key = {api_key} (should be 18 for ApiVersions)")
+        print(f"  api_version = {api_version}")
+        print(f"  correlation_id = {correlation_id}")
 
-    # error_code
-    if 0 <= request_api_version <= 4:
-        error_code = 0
-    else:
-        error_code = 35
+        try:
+            client_id_len = struct.unpack(">h", data[12:14])[0]
+            client_id = data[14:14 + client_id_len].decode("utf-8", errors="ignore")
+            print(f"  client_id_len = {client_id_len}")
+            print(f"  client_id = {client_id}")
+        except Exception as e:
+            print(f"  (client_id decode failed: {e})")
+        print()
 
-    # ApiVersions Response v4 body
-    error_code_bytes = struct.pack(">h", error_code)
-    print_bytes_info("ErrorCode bytes", error_code_bytes)
+        # based on the protocal of request messsage
+        if len(data) >= 12:
+            correlation_id_bytes = data[8:12]
+            request_api_version_bytes = data[6:8]
+            (request_api_version,) = struct.unpack('>h', request_api_version_bytes)
+            print(f"request_api_version = {request_api_version}")
+            print_bytes_info("CorrelationID bytes", correlation_id_bytes)
+            print_bytes_info("Request API version bytes", request_api_version_bytes)
+        else:
+            correlation_id_bytes = b'\x00\x00\x00\x00'
+            request_api_version = -1
 
-    # ApiKeys array，1 个元素 ApiKey=18, MinVersion=0, MaxVersion=4
-    api_key = 18
-    min_version = 0
-    max_version = 4
-    api_key_entry = struct.pack(">hhh", api_key, min_version, max_version) + b'\x00'
-    print_bytes_info("Single ApiKey entry", api_key_entry)
+        # error_code
+        if 0 <= request_api_version <= 4:
+            error_code = 0
+        else:
+            error_code = 35
 
-    api_keys_array = encode_unsigned_varint(1) + api_key_entry
-    print_bytes_info("ApiKeys array", api_keys_array)
+        # ApiVersions Response v4 body
+        error_code_bytes = struct.pack(">h", error_code)
+        print_bytes_info("ErrorCode bytes", error_code_bytes)
 
-    throttle_time_ms = struct.pack(">i", 0)
-    print_bytes_info("ThrottleTimeMs bytes", throttle_time_ms)
+        # ApiKeys array，1 个元素 ApiKey=18, MinVersion=0, MaxVersion=4
+        api_key = 18
+        min_version = 0
+        max_version = 4
+        api_key_entry = struct.pack(">hhh", api_key, min_version, max_version) + b'\x00'
+        print_bytes_info("Single ApiKey entry", api_key_entry)
 
-    response_body = error_code_bytes + api_keys_array + throttle_time_ms + b'\x00'  # tag buffer as required by v4
-    print_bytes_info("Response body", response_body)
+        api_keys_array = encode_unsigned_varint(1) + api_key_entry
+        print_bytes_info("ApiKeys array", api_keys_array)
 
-    # header + body
-    header_and_body = correlation_id_bytes + response_body
-    print_bytes_info("Header + body", header_and_body)
+        throttle_time_ms = struct.pack(">i", 0)
+        print_bytes_info("ThrottleTimeMs bytes", throttle_time_ms)
 
-    # message_size
-    message_size_bytes = struct.pack(">i", len(header_and_body))
-    print_bytes_info("Message size bytes", message_size_bytes)
+        response_body = error_code_bytes + api_keys_array + throttle_time_ms + b'\x00'  # tag buffer as required by v4
+        print_bytes_info("Response body", response_body)
 
-    response = message_size_bytes + header_and_body
+        # header + body
+        header_and_body = correlation_id_bytes + response_body
+        print_bytes_info("Header + body", header_and_body)
 
-    print("\n[Response Info]")
-    print(f"  Total response length = {len(response)} bytes")
-    print(f"  message_size (prefix) = {len(header_and_body)} bytes")
-    print(f"  correlation_id = {correlation_id}")
-    print(f"  error_code = {error_code}")
-    print(f"  api_keys_array_count = 1")
-    print(f"  api_key = {api_key}, min_version = {min_version}, max_version = {max_version}")
-    print()
+        # message_size
+        message_size_bytes = struct.pack(">i", len(header_and_body))
+        print_bytes_info("Message size bytes", message_size_bytes)
 
-    conn.sendall(response)
+        response = message_size_bytes + header_and_body
+
+        print("\n[Response Info]")
+        print(f"  Total response length = {len(response)} bytes")
+        print(f"  message_size (prefix) = {len(header_and_body)} bytes")
+        print(f"  correlation_id = {correlation_id}")
+        print(f"  error_code = {error_code}")
+        print(f"  api_keys_array_count = 1")
+        print(f"  api_key = {api_key}, min_version = {min_version}, max_version = {max_version}")
+        print()
+
+        conn.sendall(response)
+        print("Response sent.\n")
+
     conn.close()
-    print("Response sent, connection closed.")
+    print("Server closed connection.")
 
 if __name__ == "__main__":
     main()
