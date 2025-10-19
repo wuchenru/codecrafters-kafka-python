@@ -1,5 +1,6 @@
-import socket  # noqa: F401
+import socket
 import struct
+import threading
 
 def encode_unsigned_varint(n):
     out = bytearray()
@@ -19,17 +20,12 @@ def print_bytes_info(label, b):
     print("  hex:     ", b.hex())
     print()
 
-def main():
-    print("Logs from your program will appear here!")
-
-    server = socket.create_server(("localhost", 9092), reuse_port=True)
-    conn, addr = server.accept()
+def handle_client(conn, addr):
     print(f"Client connected: {addr}\n")
-
     while True:
         data = conn.recv(1024)
         if not data:
-            print("Client disconnected.")
+            print(f"Client {addr} disconnected.")
             break
 
         print_bytes_info("Received request", data)
@@ -38,7 +34,6 @@ def main():
             print("Invalid or too short Kafka request")
             continue
 
-        # parse Kafka request (based on protocol)
         message_size = struct.unpack(">i", data[0:4])[0]
         api_key = struct.unpack(">h", data[4:6])[0]
         api_version = struct.unpack(">h", data[6:8])[0]
@@ -59,7 +54,6 @@ def main():
             print(f"  (client_id decode failed: {e})")
         print()
 
-        # based on the protocal of request messsage
         if len(data) >= 12:
             correlation_id_bytes = data[8:12]
             request_api_version_bytes = data[6:8]
@@ -71,17 +65,14 @@ def main():
             correlation_id_bytes = b'\x00\x00\x00\x00'
             request_api_version = -1
 
-        # error_code
         if 0 <= request_api_version <= 4:
             error_code = 0
         else:
             error_code = 35
 
-        # ApiVersions Response v4 body
         error_code_bytes = struct.pack(">h", error_code)
         print_bytes_info("ErrorCode bytes", error_code_bytes)
 
-        # ApiKeys array，1 个元素 ApiKey=18, MinVersion=0, MaxVersion=4
         api_key = 18
         min_version = 0
         max_version = 4
@@ -94,14 +85,12 @@ def main():
         throttle_time_ms = struct.pack(">i", 0)
         print_bytes_info("ThrottleTimeMs bytes", throttle_time_ms)
 
-        response_body = error_code_bytes + api_keys_array + throttle_time_ms + b'\x00'  # tag buffer as required by v4
+        response_body = error_code_bytes + api_keys_array + throttle_time_ms + b'\x00'
         print_bytes_info("Response body", response_body)
 
-        # header + body
         header_and_body = correlation_id_bytes + response_body
         print_bytes_info("Header + body", header_and_body)
 
-        # message_size
         message_size_bytes = struct.pack(">i", len(header_and_body))
         print_bytes_info("Message size bytes", message_size_bytes)
 
@@ -120,7 +109,16 @@ def main():
         print("Response sent.\n")
 
     conn.close()
-    print("Server closed connection.")
+    print(f"Server closed connection: {addr}")
+
+def main():
+    print("Logs from your program will appear here!")
+    server = socket.create_server(("localhost", 9092), reuse_port=True)
+    print("Server listening on port 9092...\n")
+    while True:
+        conn, addr = server.accept()
+        t = threading.Thread(target=handle_client, args=(conn, addr), daemon=True)
+        t.start()
 
 if __name__ == "__main__":
     main()
