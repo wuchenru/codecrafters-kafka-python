@@ -82,20 +82,29 @@ def handle_client(conn, addr):
         # api_keys_array = encode_unsigned_varint(2) + api_key_entry
         # print_bytes_info("ApiKeys array", api_keys_array)
 
-        # ApiVersions entry
-        api_key_18 = 18
-        min_version_18 = 0
-        max_version_18 = 4
-        api_key_entry_18 = struct.pack(">hhh", api_key_18, min_version_18, max_version_18) + b'\x00'
+        # # ApiVersions entry
+        # api_key_18 = 18
+        # min_version_18 = 0
+        # max_version_18 = 4
+        # api_key_entry_18 = struct.pack(">hhh", api_key_18, min_version_18, max_version_18) + b'\x00'
 
-        # DescribeTopicPartitions entry (new)
-        api_key_75 = 75
-        min_version_75 = 0
-        max_version_75 = 0
-        api_key_entry_75 = struct.pack(">hhh", api_key_75, min_version_75, max_version_75) + b'\x00'
+        # # DescribeTopicPartitions entry
+        # api_key_75 = 75
+        # min_version_75 = 0
+        # max_version_75 = 0
+        # api_key_entry_75 = struct.pack(">hhh", api_key_75, min_version_75, max_version_75) + b'\x00'
 
-        # Combine entries (array length = 2)
-        api_keys_array = encode_unsigned_varint(3) + api_key_entry_18 + api_key_entry_75
+        api_entries = [
+            (18, 0, 4, "ApiVersions"),
+            (75, 0, 0, "DescribeTopicPartitions")
+        ]
+
+        api_keys_array = encode_unsigned_varint(len(api_entries) + 1)
+        for k, min_v, max_v, name in api_entries:
+            api_keys_array += struct.pack(">hhh", k, min_v, max_v) + b'\x00'
+
+        # # Combine entries (array length = 2)
+        # api_keys_array = encode_unsigned_varint(3) + api_key_entry_18 + api_key_entry_75
         print_bytes_info("ApiKeys array", api_keys_array)
 
         throttle_time_ms = struct.pack(">i", 0)
@@ -117,9 +126,9 @@ def handle_client(conn, addr):
         print(f"  message_size (prefix) = {len(header_and_body)} bytes")
         print(f"  correlation_id = {correlation_id}")
         print(f"  error_code = {error_code}")
-        print(f"  api_keys_array_count = 1")
-        print(f"  api_key = {api_key}, min_version = {min_version}, max_version = {max_version}")
-        print()
+        print(f"  api_keys_array_count = {len(api_entries)}")
+        for k, min_v, max_v, name in api_entries:
+            print(f"  api_key = {k} ({name}), min_version = {min_v}, max_version = {max_v}")
 
         conn.sendall(response)
         print("Response sent.\n")
