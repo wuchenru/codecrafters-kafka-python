@@ -73,26 +73,6 @@ def handle_client(conn, addr):
         error_code_bytes = struct.pack(">h", error_code)
         print_bytes_info("ErrorCode bytes", error_code_bytes)
 
-        # api_key = 18
-        # min_version = 0
-        # max_version = 4
-        # api_key_entry = struct.pack(">hhh", api_key, min_version, max_version) + b'\x00'
-        # print_bytes_info("Single ApiKey entry", api_key_entry)
-
-        # api_keys_array = encode_unsigned_varint(2) + api_key_entry
-        # print_bytes_info("ApiKeys array", api_keys_array)
-
-        # # ApiVersions entry
-        # api_key_18 = 18
-        # min_version_18 = 0
-        # max_version_18 = 4
-        # api_key_entry_18 = struct.pack(">hhh", api_key_18, min_version_18, max_version_18) + b'\x00'
-
-        # # DescribeTopicPartitions entry
-        # api_key_75 = 75
-        # min_version_75 = 0
-        # max_version_75 = 0
-        # api_key_entry_75 = struct.pack(">hhh", api_key_75, min_version_75, max_version_75) + b'\x00'
 
         api_entries = [
             (18, 0, 4, "ApiVersions"),
@@ -100,11 +80,16 @@ def handle_client(conn, addr):
         ]
 
         api_keys_array = encode_unsigned_varint(len(api_entries) + 1)
+        # why we need this extra add one?
+
+        # CompactArray encoding (Kafka protocol v4+):
+        # Per Kafka protocol spec, compact arrays encode their length as (N + 1),
+        # where N is the number of elements, to distinguish null vs empty arrays.
+        # Reference: https://kafka.apache.org/protocol.html#protocol_types   keyword to search:"compact_array"
+    
         for k, min_v, max_v, name in api_entries:
             api_keys_array += struct.pack(">hhh", k, min_v, max_v) + b'\x00'
 
-        # # Combine entries (array length = 2)
-        # api_keys_array = encode_unsigned_varint(3) + api_key_entry_18 + api_key_entry_75
         print_bytes_info("ApiKeys array", api_keys_array)
 
         throttle_time_ms = struct.pack(">i", 0)
